@@ -76,6 +76,19 @@ async function fetchRssVideoIds(channelId) {
   return parseRssVideoIds(xml, RSS_ENTRIES_PER_CHANNEL);
 }
 
+/** uploads プレイリスト（RSS 失敗時の API フォールバック、1 unit / 1 subrequest） */
+async function fetchUploadsPlaylistVideoIds(apiKey, channelId) {
+  const playlistId = `UU${channelId.slice(2)}`;
+  const data = await apiGet(apiKey, 'playlistItems', {
+    part: 'contentDetails',
+    playlistId,
+    maxResults: String(Math.min(RSS_ENTRIES_PER_CHANNEL, 10)),
+  });
+  return (data.items || [])
+    .map((item) => item.contentDetails?.videoId)
+    .filter(Boolean);
+}
+
 async function apiGet(apiKey, endpoint, params) {
   const url = new URL(`https://www.googleapis.com/youtube/v3/${endpoint}`);
   for (const [key, value] of Object.entries(params)) {
@@ -262,8 +275,10 @@ async function refreshStatus(env) {
   const allVideoIds = [];
   let rssOk = 0;
   let rssFailed = 0;
+  let playlistFallback = 0;
 
   // 順次取得（同時多発を避け、無料枠の安定性を優先）
+  // サブリクエスト目安: RSS最大18 + playlist失敗分最大18 + videos.list数回 ≤ 50
   for (const channelId of rssTargetIds) {
     try {
       const ids = await fetchRssVideoIds(channelId);
@@ -271,6 +286,13 @@ async function refreshStatus(env) {
       for (const id of ids) allVideoIds.push(id);
     } catch {
       rssFailed += 1;
+      try {
+        const ids = await fetchUploadsPlaylistVideoIds(apiKey, channelId);
+        playlistFallback += 1;
+        for (const id of ids) allVideoIds.push(id);
+      } catch {
+        /* このチャンネルは次のローテまでスキップ */
+      }
     }
   }
 
@@ -323,6 +345,7 @@ async function refreshStatus(env) {
     meta: {
       rssOk,
       rssFailed,
+      playlistFallback,
       rssBatch: rssTargetIds.length,
       channels: channelIds.length,
       videosListCalls,
