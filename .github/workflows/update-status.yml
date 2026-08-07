@@ -1,0 +1,109 @@
+name: Update Stream Status
+
+on:
+  repository_dispatch:
+    types: [refresh-status]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: vhs-city-site
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_skipped: ${{ steps.fetch.outputs.deploy_skipped }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Restore last good status
+        uses: actions/cache/restore@v4
+        with:
+          path: data/status.json
+          key: vhs-status-json-${{ github.run_id }}
+          restore-keys: |
+            vhs-status-json-
+
+      - name: Discard stale status.json
+        run: node scripts/discard-stale-status.mjs
+
+      - name: Fetch YouTube status
+        id: fetch
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          RSS_ENTRIES_PER_CHANNEL: '10'
+        run: |
+          node scripts/fetch-youtube-status.mjs
+          if [ -f .deploy-skipped ]; then
+            echo "deploy_skipped=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy_skipped=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save last good status
+        if: steps.fetch.outputs.deploy_skipped != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: data/status.json
+          key: vhs-status-json-${{ github.run_id }}
+
+      - name: Commit and push status
+        if: steps.fetch.outputs.deploy_skipped != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/status.json
+          git diff --staged --quiet && echo "No status changes" && exit 0
+          git commit -m "chore: update stream status"
+          git push
+
+  deploy:
+    needs: update
+    if: needs.update.outputs.deploy_skipped != 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Discard stale status.json
+        run: node scripts/discard-stale-status.mjs
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generate SEO pages
+        run: node scripts/generate-seo.mjs
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

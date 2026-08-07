@@ -1,0 +1,103 @@
+{
+  "groups": [
+    {
+      "id": "aogiri",
+      "name": "あおぎり高校",
+      "color": "#7db8ff",
+      "members": [
+        { "name": "音霊魂子", "channelId": "UCt7_srJeiw55kTcK7M9ID6g", "handle": "tamako0212" },
+        { "name": "石狩あかり", "channelId": "UC7wZb5INldbGweowOhBIs8Q", "handle": "akari0415" },
+        { "name": "山黒音玄", "channelId": "UCs-lYkwb-NYKE9_ssTRDK3Q", "handle": "nekuro0412" },
+        { "name": "栗駒こまる", "channelId": "UCXXnWssOLdB2jg-4CznteAA", "handle": "komaru0814" },
+        { "name": "千代浦蝶美", "channelId": "UCyY6YeINiwQoA-FnmdQCkug", "handle": "chiyomi0812" },
+        { "name": "我部りえる", "channelId": "UCFvEuP2EDkvrgJpHI6-pyNw", "handle": "rieru0830" },
+        { "name": "エトラ", "channelId": "UCAHXqn4nAd2j3LRu1Qyi_JA", "handle": "etrachannel" },
+        { "name": "春雨麗女", "channelId": "UCmiYJycZXBGc4s_zjIRUHhQ", "handle": "urame0711" },
+        { "name": "ぷわぷわぽぷら", "channelId": "UC1sBUU-y9FlHNukwsrR4bmA", "handle": "popura0119" },
+        { "name": "萌実", "channelId": "UCIwHOJn_3QjBTwQ_gNj7WRA", "handle": "Moemi_chan" },
+        { "name": "月赴ゐぶき", "channelId": "UCxy3KNlLQiN64tikKipnQNg", "handle": "ibuki0831" },
+        { "name": "うる虎がーる", "channelId": "UCdi5pj0MDQ-3LFNUFIFmD8w", "handle": "urutoragaru0831" },
+        { "name": "八十科むじな", "channelId": "UCXXlhNCp1EPbDQ2pzmmy9aw", "handle": "mujina0831" }
+      ]
+    },
+    {
+      "id": "yugiri",
+      "name": "ゆうぎり高校",
+      "color": "#ffb070",
+      "members": [
+        { "name": "運命メイナ", "channelId": "UCbsgSnDh12vTloogn0g6lPQ", "handle": "DestinyMeina" },
+        { "name": "天羅洲テラス", "channelId": "UCpgG-Ff5fSId2zoRW4O5dsw", "handle": "AmarasuTerasu" },
+        { "name": "LN_へるぷ.exe", "channelId": "UCzvizEAhqHm0D1fEa-hNiLg", "handle": "LN_Help_exe" },
+        { "name": "篠崎シャノン", "channelId": "UChrnxv-6qAikn3_oUwysZWg", "handle": "ShinozakiShanon" },
+        { "name": "宮霧りりい", "channelId": "UCmFyGUEEbGRD9eWv6KoveDg", "handle": "MiyakiriLily" }
+      ]
+    },
+    {
+      "id": "bebop",
+      "name": "ビバップ高校",
+      "color": "#6ee7aa",
+      "members": [
+        { "name": "アカシ・ニコ", "channelId": "UCV5jFxqHWDppyzznOBJbvVg", "handle": "niko_brdc" },
+        { "name": "永久不滅ゆるる", "channelId": "UCBT07kDimH3-HJ9zq1rFQKg", "handle": "yururu_coisqa" },
+        { "name": "明鏡止水ふわり", "channelId": "UCV1is8yPGubl7J7vG7K45Hg", "handle": "fuwari_coisqa" },
+        { "name": "甘葛すもあ", "channelId": "UCAflRAT6B_7nvxAK72ztN3A", "handle": "sumoa_meiwaku" },
+        { "name": "泡喰はわこ", "channelId": "UCQjIXLk6lridUCQIBHaLMDw", "handle": "hawako_meiwaku" },
+        { "name": "常勝無敗ぐぬぬ", "channelId": "UCIOUnOw74BcQZzskbjK3f8w", "handle": "gununu_meiwaku" },
+        { "name": "二藍しぃあ", "channelId": "UCNwjdfFJVqQ9-qi1lwn4olw", "handle": "shia_morinyan" },
+        { "name": "微睡いちの", "channelId": "UCvCks1oVZfBuG1VXicOr5aw", "handle": "ichino_morinyan" },
+        { "name": "数寄屋橋れんげ", "channelId": "UCBxgYX7hJy6TZVvLXOEQrWw", "handle": "renge_morinyan" },
+        { "name": "漆八ぷてら", "channelId": "UCE7AsnCoT5-je_fob9MAEqw", "handle": "ShichihachiPutera" }
+      ]
+    },
+    {
+      "id": "goraku",
+      "name": "娯楽組",
+      "color": "#c49bff",
+      "members": [
+        {
+          "name": "落乃いなほ",
+          "channelId": "UCxk-xk9E_GS8Z5qJ-iBYLyw",
+          "handle": "落乃いなほ"
+        },
+        {
+          "name": "与璃つづく",
+          "channelId": "UCNaO1bNGrA5f5mYcmTAZkzQ",
+          "handle": "与璃つづく"
+        },
+        {
+          "name": "壱神ふらん",
+          "channelId": "UCxo7YTxJQq0dGeLjm4kZKEQ",
+          "handle": "Isshin_Fran"
+        },
+        {
+          "name": "犬束しばり",
+          "channelId": "UCTSjiG5djZybco4v4nQDOCg",
+          "handle": "犬束しばり"
+        },
+        {
+          "name": "回胴てん",
+          "channelId": "UCcuJiXr5imCUjFCHhFm1WmA",
+          "handle": "回胴てん"
+        }
+      ]
+    },
+    {
+      "id": "partner",
+      "name": "パートナークリエイター",
+      "color": "#f5db6e",
+      "members": [
+        { "name": "従井ノラ", "channelId": "UCQYy35PowPpc6ImRH1TQgcw", "handle": "nora_shitagai" }
+      ]
+    },
+    {
+      "id": "official",
+      "name": "VHS City 公式",
+      "color": "#9ed8df",
+      "members": [
+        { "name": "VHS Cityの日常", "channelId": "UCEXdD_eD7CWRkj387x_7PDA", "handle": "VtuberHighSchoolCity" },
+        { "name": "あおぎり高校公式", "channelId": "UCPLeqi7rIqS9uY4_TrSUOMg", "handle": "aogiri1027" },
+        { "name": "ビバップ高校公式", "channelId": "UCUz7tGmXSAxMO04Xvs9GVOA", "handle": "VebopProject_official" }
+      ]
+    }
+  ]
+}
