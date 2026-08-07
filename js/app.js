@@ -162,10 +162,13 @@ function render() {
 }
 
 async function loadStatus() {
-  const url = new URL(STATUS_URL);
+  const url = new URL(STATUS_URL.href || STATUS_URL, import.meta.url);
   url.searchParams.set('t', String(Date.now()));
 
-  const response = await fetch(url);
+  const response = await fetch(url.href, {
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+  });
   if (!response.ok) {
     throw new Error(`status.json の読み込みに失敗しました (${response.status})`);
   }
@@ -188,8 +191,13 @@ function setupFilters() {
 refreshBtn.addEventListener('click', async () => {
   refreshBtn.disabled = true;
   refreshBtn.textContent = '更新中…';
+  const previousUpdatedAt = latestStatus.updatedAt;
   try {
     await loadStatus();
+    // サーバー側の取得は5分間隔。ボタンは「表示の再取得」なので、変化がなくても完了を明示する
+    if (latestStatus.updatedAt === previousUpdatedAt) {
+      lastUpdated.textContent = `${formatRelativeUpdate(latestStatus.updatedAt)}（表示を再取得済み）`;
+    }
   } catch (error) {
     lastUpdated.textContent = error.message;
   } finally {

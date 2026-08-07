@@ -441,7 +441,7 @@ export default {
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
           'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'public, max-age=30',
+          'Cache-Control': 'no-store',
         },
       });
     }
