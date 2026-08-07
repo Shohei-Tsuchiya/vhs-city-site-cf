@@ -12,8 +12,8 @@
 
 import membersConfig from '../data/members.json';
 
-const RSS_CHANNELS_PER_RUN = 10;
-const RSS_ENTRIES_PER_CHANNEL = 8;
+const RSS_CHANNELS_PER_RUN = 18;
+const RSS_ENTRIES_PER_CHANNEL = 10;
 const VIDEOS_LIST_CHUNK = 50;
 const UPCOMING_GRACE_MS = 30 * 60 * 1000;
 const UPCOMING_HORIZON_MS = 90 * 24 * 60 * 60 * 1000;
