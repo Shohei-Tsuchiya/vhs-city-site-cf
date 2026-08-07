@@ -346,8 +346,28 @@ function authorizeRefresh(request, env) {
   let token = '';
   const bearer = header.match(/^Bearer\s+(.+)$/i);
   if (bearer) token = bearer[1].trim();
+  // 一部環境では Authorization が落ちるため、専用ヘッダーも受け付ける
+  if (!token) {
+    token = (request.headers.get('X-Refresh-Token') || '').trim();
+  }
   const urlToken = (new URL(request.url).searchParams.get('token') || '').trim();
   return token === secret || urlToken === secret;
+}
+
+function authDebug(request, env) {
+  const secret = String(env.REFRESH_SECRET || '').trim();
+  const header = request.headers.get('Authorization') || '';
+  const bearer = header.match(/^Bearer\s+(.+)$/i);
+  const bearerLen = bearer ? bearer[1].trim().length : 0;
+  const xLen = (request.headers.get('X-Refresh-Token') || '').trim().length;
+  const urlLen = (new URL(request.url).searchParams.get('token') || '').trim().length;
+  return {
+    hasSecret: Boolean(secret),
+    secretLength: secret.length,
+    receivedBearerLength: bearerLen,
+    receivedXRefreshTokenLength: xLen,
+    receivedUrlTokenLength: urlLen,
+  };
 }
 
 export default {
@@ -359,9 +379,13 @@ export default {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Refresh-Token',
         },
       });
+    }
+
+    if (url.pathname === '/auth-check') {
+      return jsonResponse(authDebug(request, env));
     }
 
     if (
@@ -369,7 +393,7 @@ export default {
       (request.method === 'POST' || request.method === 'GET')
     ) {
       if (!authorizeRefresh(request, env)) {
-        return jsonResponse({ error: 'unauthorized' }, { status: 401 });
+        return jsonResponse({ error: 'unauthorized', ...authDebug(request, env) }, { status: 401 });
       }
       try {
         const result = await refreshStatus(env);
