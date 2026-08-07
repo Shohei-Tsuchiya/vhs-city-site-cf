@@ -340,11 +340,13 @@ function jsonResponse(data, init = {}) {
 }
 
 function authorizeRefresh(request, env) {
-  const secret = env.REFRESH_SECRET;
+  const secret = String(env.REFRESH_SECRET || '').trim();
   if (!secret) return false; // HTTP 手動更新は REFRESH_SECRET 必須（Cron は認証不要）
   const header = request.headers.get('Authorization') || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-  const urlToken = new URL(request.url).searchParams.get('token') || '';
+  let token = '';
+  const bearer = header.match(/^Bearer\s+(.+)$/i);
+  if (bearer) token = bearer[1].trim();
+  const urlToken = (new URL(request.url).searchParams.get('token') || '').trim();
   return token === secret || urlToken === secret;
 }
 
