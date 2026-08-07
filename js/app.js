@@ -1,4 +1,12 @@
-const STATUS_URL = new URL('../data/status.json', import.meta.url);
+import { STATUS_URL as STATUS_URL_CONFIG } from './config.js';
+
+const STATUS_URL = (() => {
+  try {
+    return new URL(STATUS_URL_CONFIG, import.meta.url);
+  } catch {
+    return new URL('../data/status.json', import.meta.url);
+  }
+})();
 const REFRESH_INTERVAL_MS = 2 * 60 * 1000;
 
 let currentFilter = 'all';
@@ -51,7 +59,7 @@ function formatDateTime(iso) {
 }
 
 function formatRelativeUpdate(iso) {
-  if (!iso) return 'まだデータがありません（GitHub Actions の初回実行を待っています）';
+  if (!iso) return 'まだデータがありません（Cloudflare Worker の初回実行を待っています）';
   const diffMs = Date.now() - new Date(iso).getTime();
   const minutes = Math.max(0, Math.round(diffMs / 60000));
   let text;

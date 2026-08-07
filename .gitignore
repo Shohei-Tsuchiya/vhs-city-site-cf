@@ -1,7 +1,10 @@
 .env
+.dev.vars
 node_modules/
+.wrangler/
 .deploy-skipped
 .DS_Store
 Thumbs.db
 /members/
 /groups/
+dist/

@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const DATA = join(ROOT, 'data');
-const BASE_URL = (process.env.SITE_BASE_URL || 'https://shohei-tsuchiya.github.io/vhs-city-site').replace(
+const BASE_URL = (process.env.SITE_BASE_URL || 'https://vhs-city-site-cf.pages.dev').replace(
   /\/$/,
   ''
 );

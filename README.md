@@ -1,144 +1,134 @@
-# VHS City 配信ダッシュボード
+# VHS City 配信ダッシュボード（Cloudflare 版）
 
-VHS City メンバーの YouTube **配信中** / **配信予定** を一覧表示する非公式ファンサイトです。  
-GitHub Pages で公開し、cron-job.org 経由で **5 分おき** に配信状況を更新します。
+GitHub Pages / Actions 版の実験フォークです。  
+**Cloudflare Pages（静的配信）+ Worker（5分更新・status 配信）** で、無料枠内運用を目指します。
 
-## 公開 URL（設定後）
+元リポジトリ: https://github.com/Shohei-Tsuchiya/vhs-city-site
 
+## 構成（無料枠向け）
+
+```text
+cron（Workers Cron */5）
+  → Worker が YouTube RSS + videos.list（軽量ローテ）
+  → KV に status.json を保存
+
+ブラウザ
+  → Cloudflare Pages（HTML/CSS/JS）
+  → Worker URL から status.json を取得
 ```
-https://<あなたのGitHubユーザー名>.github.io/vhs-city-site/
-```
 
-## 初回セットアップ
+| サービス | 無料枠の使い方 |
+|----------|----------------|
+| Pages | コード変更時だけビルド（5分ごとの再ビルドはしない） |
+| Worker Cron | 5分おき（約288回/日 ≪ 10万回） |
+| KV 書き込み | 約288回/日 ≪ 1,000回 |
+| サブリクエスト | RSS 10ch/回 + videos.list 数回（≤50） |
 
-### 1. GitHub にリポジトリを作る
+※ Worker 無料は **CPU 10ms/回** が厳しいので、playlist 一括補完は入れていません。検出はローテーション中心です。
 
-1. GitHub で **New repository** を作成
-2. リポジトリ名の例: `vhs-city-site`
-3. Public を選択
+## セットアップ手順
 
-### 2. ローカルから push
+### 0. 前提
+
+- Cloudflare アカウント（無料）
+- Node.js 22+
+- このリポジトリを clone
+- YouTube Data API キー（既存と同じで可）
+
+### 1. 依存関係
 
 ```powershell
-cd "D:\work\dev_plugins\vhs city site"
-git init
-git add .
-git commit -m "Initial commit: VHS City stream dashboard"
-git branch -M main
-git remote add origin https://github.com/<ユーザー名>/vhs-city-site.git
-git push -u origin main
+cd D:\work\dev_plugins\vhs-city-site-cf
+npm install
 ```
 
-### 3. YouTube API キーを GitHub Secrets に登録
-
-1. リポジトリの **Settings** → **Secrets and variables** → **Actions**
-2. **New repository secret**
-3. Name: `YOUTUBE_API_KEY`
-4. Value: Google Cloud で取得した API キー
-
-### 4. GitHub Pages を有効化
-
-1. **Settings** → **Pages**
-2. **Build and deployment** → Source: **GitHub Actions**
-
-### 5. 初回デプロイの確認
-
-1. **Actions** タブで `Deploy VHS City Site` が成功するか確認
-2. 数分後、Pages の URL を開く
-
-手動で即実行する場合: Actions → `Deploy VHS City Site` → **Run workflow**
-
-## ローカルでの動作確認
+### 2. KV 作成 & wrangler.toml
 
 ```powershell
-cd "D:\work\dev_plugins\vhs city site"
-copy .env.example .env
-# .env に YOUTUBE_API_KEY=... を記入
-npm run fetch
+npx wrangler login
+npx wrangler kv namespace create STATUS_KV
 ```
 
-ブラウザで `index.html` を開くか、簡易サーバーで確認:
+表示された `id` を `wrangler.toml` の `id` / `preview_id` に貼る。
+
+### 3. Worker secrets
 
 ```powershell
-npx --yes serve .
+npx wrangler secret put YOUTUBE_API_KEY
+npx wrangler secret put REFRESH_SECRET
 ```
 
-## メンバーの追加・修正
+`REFRESH_SECRET` は手動更新用（任意の長い文字列）。
 
-`data/members.json` を編集します。
+### 4. Worker デプロイ
 
-```json
-{ "name": "表示名", "channelId": "UCxxxxxxxx", "handle": "YouTubeハンドル（@なし）" }
+```powershell
+npm run worker:deploy
 ```
 
-**channelId は必須**です（API クォータ節約のため）。ハンドルだけの登録は避けてください。
+デプロイ後の URL 例:
 
-**ビバップ高校・娯楽組** のハンドルは公式情報をもとに登録していますが、リブランディング直後のため誤りがある可能性があります。配信が拾えないメンバーがいたら YouTube の `@ハンドル` を確認して修正してください。
-
-## API クォータについて
-
-**search API は使わず**、RSS + `videos.list` で全メンバーを一括チェックします。
-
-| 処理 | API 消費 |
-|------|----------|
-| チャンネル RSS 取得 | **0**（無料） |
-| `videos.list`（最大50件/回） | **1 unit/回** |
-| チャンネル ID 解決 | **0**（`members.json` に channelId 固定済み） |
-
-現在のスケジュール:
-
-- **cron-job.org** から `repository_dispatch` で **5 分おき** に起動（GitHub 内蔵 cron は使用しない）
-- 1 回あたり `videos.list` 約 **7 回**
-- 1 日あたり Queries 約 **2,000 units**（上限 9,500 に対して余裕）
-- **Search Queries は 0**
-
-### クォータ超過時の挙動
-
-YouTube API の日次上限に達した場合:
-
-- ワークフローは **失敗扱いにしない**（メール通知なし）
-- 公開サイトは **直前のデータを維持**（デプロイもスキップ）
-- 太平洋時間 0:00（JST 16:00 頃）のクォータリセット後、自動復帰
-
-### 5 分おき更新（cron-job.org）
-
-1. GitHub で Fine-grained PAT を作成（対象リポジトリ: `vhs-city-site`、権限: **Actions: Read and write**）
-2. [cron-job.org](https://cron-job.org/) でアカウント作成
-3. 新規ジョブを追加:
-   - URL: `https://api.github.com/repos/Shohei-Tsuchiya/vhs-city-site/dispatches`
-   - 間隔: 5 分
-   - メソッド: POST
-   - ヘッダー: `Authorization: Bearer <PAT>`、`Accept: application/vnd.github+json`
-   - ボディ: `{"event_type":"refresh-status"}`
-4. 保存後、Actions タブで **Update Stream Status** が定期実行されることを確認
-
-手動更新は [Actions → Update Stream Status → Run workflow](https://github.com/Shohei-Tsuchiya/vhs-city-site/actions/workflows/update-status.yml) からも可能です。
-
-### GitHub の失敗通知メールを減らす
-
-クォータ超過時はワークフロー成功扱いになりますが、それ以外の失敗通知も減らしたい場合:
-
-1. [GitHub → Settings → Notifications](https://github.com/settings/notifications)
-2. **Actions** セクションを開く
-3. **Send notifications for failed workflows** のチェックを外す（または **Only notify for failed workflows on repositories I watch** に変更）
-
-配信状況更新は cron-job.org が担うため、GitHub cron は不要です。
-
-配信開始からサイト反映まで、更新が正常に動いていればおおむね **5〜10 分以内** です。
-
-## 構成
-
-```
-index.html              フロントページ
-css/style.css           VHS 風スタイル
-js/app.js               表示ロジック
-data/members.json       メンバー定義
-data/status.json        配信状況（Actions が更新）
-scripts/fetch-youtube-status.mjs
-.github/workflows/update-status.yml
-.github/workflows/deploy.yml
+```text
+https://vhs-city-status.<あなたのサブドメイン>.workers.dev/status.json
 ```
 
-## 免責
+動作確認:
 
-本サイトは **非公式のファン制作** です。株式会社 viviON および VHS City 公式とは関係ありません。
+```powershell
+curl "https://vhs-city-status.<subdomain>.workers.dev/refresh?token=<REFRESH_SECRET>"
+curl "https://vhs-city-status.<subdomain>.workers.dev/status.json"
+```
+
+### 5. Cloudflare Pages
+
+1. Cloudflare Dashboard → **Workers & Pages** → **Create** → **Pages** → Import Git repository
+2. この `vhs-city-site-cf` を選択
+3. ビルド設定:
+
+| 項目 | 値 |
+|------|-----|
+| Framework preset | None |
+| Build command | `npm run build` |
+| Build output directory | `/` |
+| Root directory | `/` |
+
+4. Environment variables（Production）:
+
+| Name | Value |
+|------|--------|
+| `STATUS_WORKER_URL` | `https://vhs-city-status.<subdomain>.workers.dev` （末尾スラッシュなし） |
+| `SITE_BASE_URL` | Pages の公開 URL（例: `https://vhs-city-site-cf.pages.dev`） |
+
+5. Save and Deploy
+
+### 6. （任意）cron-job.org バックアップ
+
+Workers Cron が止まっているときの保険:
+
+- URL: `https://vhs-city-status.<subdomain>.workers.dev/refresh?token=<REFRESH_SECRET>`
+- 間隔: 5分
+- Method: GET
+
+## ローカル確認
+
+```powershell
+# 静的
+npm run build
+# index.html を開く（STATUS_WORKER_URL 未設定なら data/status.json）
+
+# Worker
+npx wrangler dev
+```
+
+## GitHub Actions について
+
+このフォークでは **GitHub Actions / Pages は使いません。**  
+更新も配信も Cloudflare 側です。
+
+## 元サイトとの違い
+
+- `status.json` は git に依存せず **KV** が正
+- RSS は 1回あたり **10チャンネル** ローテ（無料枠のサブリクエスト対策）
+- `/live` プローブや off-batch playlist は未使用（CPU/サブリクエスト節約）
+
+問題が出たら元サイトのロジックを、無料枠の範囲で段階的に戻していきます。

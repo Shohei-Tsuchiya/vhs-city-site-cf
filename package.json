@@ -1,9 +1,17 @@
 {
-  "name": "vhs-city-site",
+  "name": "vhs-city-site-cf",
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "node scripts/write-config.mjs && node scripts/generate-seo.mjs",
+    "write-config": "node scripts/write-config.mjs",
+    "generate-seo": "node scripts/generate-seo.mjs",
     "fetch": "node --env-file=.env scripts/fetch-youtube-status.mjs",
-    "generate-seo": "node scripts/generate-seo.mjs"
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy",
+    "worker:tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.28.0"
   }
 }

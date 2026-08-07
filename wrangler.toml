@@ -1,0 +1,19 @@
+name = "vhs-city-status"
+main = "worker/index.js"
+compatibility_date = "2026-08-01"
+workers_dev = true
+
+# 無料枠: Cron は CPU 10ms。fetch 待ちは CPU 外。5分おき ≈ 288 回/日
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[kv_namespaces]]
+binding = "STATUS_KV"
+# 初回: npx wrangler kv namespace create STATUS_KV
+# 出力された id を下行に設定
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+preview_id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# secrets:
+#   npx wrangler secret put YOUTUBE_API_KEY
+#   npx wrangler secret put REFRESH_SECRET
