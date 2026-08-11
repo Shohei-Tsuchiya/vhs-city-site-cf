@@ -30,6 +30,7 @@ const GROUP_COLORS = {
   yugiri: '#ffb070',
   bebop: '#6ee7aa',
   goraku: '#c49bff',
+  kemomimi: '#ff9eb5',
   partner: '#f5db6e',
   official: '#9ed8df',
 };

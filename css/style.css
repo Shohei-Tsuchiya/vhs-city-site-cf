@@ -338,6 +338,10 @@ h1 {
   color: #c49bff;
 }
 
+.group-label[data-group-id='kemomimi'] {
+  color: #ff9eb5;
+}
+
 .group-label[data-group-id='partner'] {
   color: #f5db6e;
 }

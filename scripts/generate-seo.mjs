@@ -20,6 +20,7 @@ const GROUP_ALIASES = {
   yugiri: ['ゆうぎり高校', 'Yugiri High School'],
   bebop: ['ビバップ高校', 'Vebop High School', 'Vebop'],
   goraku: ['娯楽組'],
+  kemomimi: ['けもみみりふれっ！', 'Kemomimi Refle'],
   partner: ['パートナークリエイター', '従井ノラ'],
   official: ['VHS City 公式', 'VHS Cityの日常'],
 };

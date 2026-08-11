@@ -82,6 +82,16 @@
       ]
     },
     {
+      "id": "kemomimi",
+      "name": "けもみみりふれっ！",
+      "color": "#ff9eb5",
+      "members": [
+        { "name": "兎野さくら", "channelId": "UCVdX1tXsZs-BHdQ-ODP2X4A", "handle": "UnoSakura" },
+        { "name": "狛江撫子", "channelId": "UCmVomBV_EV5WpXhlyqBXUww", "handle": "NadeKomaKemomimiRefle" },
+        { "name": "猫羽かりん", "channelId": "UC2L0MeiLsfJf4rH_xTVteDw", "handle": "necomakarin" }
+      ]
+    },
+    {
       "id": "partner",
       "name": "パートナークリエイター",
       "color": "#f5db6e",
@@ -96,7 +106,8 @@
       "members": [
         { "name": "VHS Cityの日常", "channelId": "UCEXdD_eD7CWRkj387x_7PDA", "handle": "VtuberHighSchoolCity" },
         { "name": "あおぎり高校公式", "channelId": "UCPLeqi7rIqS9uY4_TrSUOMg", "handle": "aogiri1027" },
-        { "name": "ビバップ高校公式", "channelId": "UCUz7tGmXSAxMO04Xvs9GVOA", "handle": "VebopProject_official" }
+        { "name": "ビバップ高校公式", "channelId": "UCUz7tGmXSAxMO04Xvs9GVOA", "handle": "VebopProject_official" },
+        { "name": "けもみみりふれっ！公式", "channelId": "UC4sjhgnEf2AQJRuxfWj30-Q", "handle": "KemomimiRefle" }
       ]
     }
   ]
