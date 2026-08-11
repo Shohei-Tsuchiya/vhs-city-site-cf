@@ -13,8 +13,12 @@
 import membersConfig from '../data/members.json';
 
 const RSS_CHANNELS_PER_RUN = 18;
-/** RSS 失敗時の playlistItems 補完上限（無料枠の API 消費抑制） */
-const PLAYLIST_FALLBACK_MAX = 8;
+/**
+ * RSS 失敗時の playlistItems 補完上限。
+ * サブリクエスト: RSS最大18 + playlist最大18 + videos.list数回 ≤ 50（無料枠）
+ * CF 一本化後は日次 API も余裕があるため、バッチ全件まで補完する。
+ */
+const PLAYLIST_FALLBACK_MAX = RSS_CHANNELS_PER_RUN;
 const RSS_ENTRIES_PER_CHANNEL = 10;
 const VIDEOS_LIST_CHUNK = 50;
 const UPCOMING_GRACE_MS = 30 * 60 * 1000;
