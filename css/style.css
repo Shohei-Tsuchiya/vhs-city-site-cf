@@ -212,6 +212,34 @@ h1 {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.filter-btn[data-filter='aogiri'] {
+  color: #7db8ff;
+}
+
+.filter-btn[data-filter='yugiri'] {
+  color: #ffb070;
+}
+
+.filter-btn[data-filter='bebop'] {
+  color: #6ee7aa;
+}
+
+.filter-btn[data-filter='goraku'] {
+  color: #c49bff;
+}
+
+.filter-btn[data-filter='kemomimi'] {
+  color: #ff9eb5;
+}
+
+.filter-btn[data-filter='partner'] {
+  color: #f5db6e;
+}
+
+.filter-btn[data-filter='official'] {
+  color: #9ed8df;
+}
+
 .panel {
   margin-bottom: 28px;
   padding: 18px;
