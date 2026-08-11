@@ -8,6 +8,7 @@ https://vhs-city-site-cf.pages.dev/groups/goraku.html
 https://vhs-city-site-cf.pages.dev/groups/kemomimi.html
 https://vhs-city-site-cf.pages.dev/groups/partner.html
 https://vhs-city-site-cf.pages.dev/groups/official.html
+https://vhs-city-site-cf.pages.dev/members/aogiri1027.html
 https://vhs-city-site-cf.pages.dev/members/tamako0212.html
 https://vhs-city-site-cf.pages.dev/members/akari0415.html
 https://vhs-city-site-cf.pages.dev/members/nekuro0412.html
@@ -26,6 +27,7 @@ https://vhs-city-site-cf.pages.dev/members/AmarasuTerasu.html
 https://vhs-city-site-cf.pages.dev/members/LN_Help_exe.html
 https://vhs-city-site-cf.pages.dev/members/ShinozakiShanon.html
 https://vhs-city-site-cf.pages.dev/members/MiyakiriLily.html
+https://vhs-city-site-cf.pages.dev/members/VebopProject_official.html
 https://vhs-city-site-cf.pages.dev/members/niko_brdc.html
 https://vhs-city-site-cf.pages.dev/members/yururu_coisqa.html
 https://vhs-city-site-cf.pages.dev/members/fuwari_coisqa.html
@@ -47,5 +49,3 @@ https://vhs-city-site-cf.pages.dev/members/NadeKomaKemomimiRefle.html
 https://vhs-city-site-cf.pages.dev/members/necomakarin.html
 https://vhs-city-site-cf.pages.dev/members/nora_shitagai.html
 https://vhs-city-site-cf.pages.dev/members/VtuberHighSchoolCity.html
-https://vhs-city-site-cf.pages.dev/members/aogiri1027.html
-https://vhs-city-site-cf.pages.dev/members/VebopProject_official.html

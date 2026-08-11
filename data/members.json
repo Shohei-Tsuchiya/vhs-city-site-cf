@@ -5,6 +5,7 @@
       "name": "あおぎり高校",
       "color": "#7db8ff",
       "members": [
+        { "name": "あおぎり高校公式", "channelId": "UCPLeqi7rIqS9uY4_TrSUOMg", "handle": "aogiri1027" },
         { "name": "音霊魂子", "channelId": "UCt7_srJeiw55kTcK7M9ID6g", "handle": "tamako0212" },
         { "name": "石狩あかり", "channelId": "UC7wZb5INldbGweowOhBIs8Q", "handle": "akari0415" },
         { "name": "山黒音玄", "channelId": "UCs-lYkwb-NYKE9_ssTRDK3Q", "handle": "nekuro0412" },
@@ -37,6 +38,7 @@
       "name": "ビバップ高校",
       "color": "#6ee7aa",
       "members": [
+        { "name": "ビバップ高校公式", "channelId": "UCUz7tGmXSAxMO04Xvs9GVOA", "handle": "VebopProject_official" },
         { "name": "アカシ・ニコ", "channelId": "UCV5jFxqHWDppyzznOBJbvVg", "handle": "niko_brdc" },
         { "name": "永久不滅ゆるる", "channelId": "UCBT07kDimH3-HJ9zq1rFQKg", "handle": "yururu_coisqa" },
         { "name": "明鏡止水ふわり", "channelId": "UCV1is8yPGubl7J7vG7K45Hg", "handle": "fuwari_coisqa" },
@@ -102,12 +104,10 @@
     },
     {
       "id": "official",
-      "name": "VHS City 公式",
+      "name": "VHS CITY",
       "color": "#9ed8df",
       "members": [
-        { "name": "VHS Cityの日常", "channelId": "UCEXdD_eD7CWRkj387x_7PDA", "handle": "VtuberHighSchoolCity" },
-        { "name": "あおぎり高校公式", "channelId": "UCPLeqi7rIqS9uY4_TrSUOMg", "handle": "aogiri1027" },
-        { "name": "ビバップ高校公式", "channelId": "UCUz7tGmXSAxMO04Xvs9GVOA", "handle": "VebopProject_official" }
+        { "name": "VHS Cityの日常", "channelId": "UCEXdD_eD7CWRkj387x_7PDA", "handle": "VtuberHighSchoolCity" }
       ]
     }
   ]
