@@ -58,7 +58,8 @@ function formatDateTime(iso) {
   }).format(date);
 }
 
-function formatRelativeUpdate(iso) {
+function formatRelativeUpdate(status) {
+  const iso = status?.updatedAt;
   if (!iso) return 'まだデータがありません（Cloudflare Worker の初回実行を待っています）';
   const diffMs = Date.now() - new Date(iso).getTime();
   const minutes = Math.max(0, Math.round(diffMs / 60000));
@@ -69,7 +70,20 @@ function formatRelativeUpdate(iso) {
     const hours = Math.round(minutes / 60);
     text = `最終更新: 約${hours}時間前 (${formatDateTime(iso)})`;
   }
-  if (minutes >= 10) {
+
+  const meta = status?.meta || {};
+  const attemptMs = new Date(meta.lastAttemptAt || 0).getTime();
+  const attemptAgeMin = Number.isNaN(attemptMs)
+    ? Number.POSITIVE_INFINITY
+    : Math.round((Date.now() - attemptMs) / 60000);
+
+  if (meta.ok === false && attemptAgeMin <= 15) {
+    if (meta.quotaExceeded || meta.lastError === 'quota_exceeded') {
+      text += ' — YouTube API 上限のため前回データを表示中';
+    } else {
+      text += ' — 取得に失敗したため前回データを表示中';
+    }
+  } else if (minutes >= 10) {
     text += ' — 更新が遅れている可能性があります';
   }
   return text;
@@ -155,7 +169,7 @@ function render() {
 
   liveCount.textContent = String(liveItems.length);
   upcomingCount.textContent = String(upcomingItems.length);
-  lastUpdated.textContent = formatRelativeUpdate(latestStatus.updatedAt);
+  lastUpdated.textContent = formatRelativeUpdate(latestStatus);
 
   renderCards(liveList, liveItems, 'live');
   renderCards(upcomingList, upcomingItems, 'upcoming');

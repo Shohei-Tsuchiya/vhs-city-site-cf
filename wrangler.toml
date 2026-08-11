@@ -11,8 +11,8 @@ crons = ["*/5 * * * *"]
 binding = "STATUS_KV"
 # 初回: npx wrangler kv namespace create STATUS_KV
 # 出力された id を下行に設定
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
-preview_id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "226a65529d7c4869b8fa8e43e528999b"
+preview_id = "226a65529d7c4869b8fa8e43e528999b"
 
 # secrets:
 #   npx wrangler secret put YOUTUBE_API_KEY

@@ -13,6 +13,8 @@
 import membersConfig from '../data/members.json';
 
 const RSS_CHANNELS_PER_RUN = 18;
+/** RSS 失敗時の playlistItems 補完上限（無料枠の API 消費抑制） */
+const PLAYLIST_FALLBACK_MAX = 8;
 const RSS_ENTRIES_PER_CHANNEL = 10;
 const VIDEOS_LIST_CHUNK = 50;
 const UPCOMING_GRACE_MS = 30 * 60 * 1000;
@@ -276,9 +278,10 @@ async function refreshStatus(env) {
   let rssOk = 0;
   let rssFailed = 0;
   let playlistFallback = 0;
+  let playlistFallbackSkipped = 0;
 
   // 順次取得（同時多発を避け、無料枠の安定性を優先）
-  // サブリクエスト目安: RSS最大18 + playlist失敗分最大18 + videos.list数回 ≤ 50
+  // サブリクエスト目安: RSS最大18 + playlist補完上限 + videos.list数回 ≤ 50
   for (const channelId of rssTargetIds) {
     try {
       const ids = await fetchRssVideoIds(channelId);
@@ -286,6 +289,10 @@ async function refreshStatus(env) {
       for (const id of ids) allVideoIds.push(id);
     } catch {
       rssFailed += 1;
+      if (playlistFallback >= PLAYLIST_FALLBACK_MAX) {
+        playlistFallbackSkipped += 1;
+        continue;
+      }
       try {
         const ids = await fetchUploadsPlaylistVideoIds(apiKey, channelId);
         playlistFallback += 1;
@@ -338,20 +345,44 @@ async function refreshStatus(env) {
     return !Number.isNaN(checkedMs) && Date.now() - checkedMs < LIVE_DISPLAY_TTL_MS;
   });
 
+  const meta = {
+    ok: true,
+    lastAttemptAt: new Date().toISOString(),
+    lastSuccessAt: status.updatedAt,
+    rssOk,
+    rssFailed,
+    playlistFallback,
+    playlistFallbackSkipped,
+    rssBatch: rssTargetIds.length,
+    channels: channelIds.length,
+    videosListCalls,
+    videoIds: [...new Set(allVideoIds)].length,
+  };
+  status.meta = meta;
   await env.STATUS_KV.put(STATUS_KV_KEY, JSON.stringify(status));
 
-  return {
-    status,
+  return { status, meta };
+}
+
+/** 取得失敗時も KV に心跳を残し、「Cron 停止」と「API 失敗」を切り分ける */
+async function preserveOnFailure(env, error) {
+  const previous = (await loadPrevious(env)) || emptyStatus();
+  const now = new Date().toISOString();
+  const status = {
+    ...previous,
     meta: {
-      rssOk,
-      rssFailed,
-      playlistFallback,
-      rssBatch: rssTargetIds.length,
-      channels: channelIds.length,
-      videosListCalls,
-      videoIds: [...new Set(allVideoIds)].length,
+      ...(previous.meta || {}),
+      ok: false,
+      lastAttemptAt: now,
+      lastSuccessAt: previous.meta?.lastSuccessAt || previous.updatedAt || null,
+      lastError: error?.isQuotaExceeded
+        ? 'quota_exceeded'
+        : String(error?.message || error || 'unknown'),
+      quotaExceeded: Boolean(error?.isQuotaExceeded),
     },
   };
+  await env.STATUS_KV.put(STATUS_KV_KEY, JSON.stringify(status));
+  return { status, meta: status.meta };
 }
 
 function jsonResponse(data, init = {}) {
@@ -422,10 +453,28 @@ export default {
         const result = await refreshStatus(env);
         return jsonResponse({ ok: true, ...result.meta, updatedAt: result.status.updatedAt });
       } catch (error) {
+        const preserved = await preserveOnFailure(env, error);
         if (error?.isQuotaExceeded) {
-          return jsonResponse({ ok: false, error: 'quota_exceeded', message: error.message }, { status: 200 });
+          return jsonResponse(
+            {
+              ok: false,
+              error: 'quota_exceeded',
+              message: error.message,
+              ...preserved.meta,
+              updatedAt: preserved.status.updatedAt,
+            },
+            { status: 200 }
+          );
         }
-        return jsonResponse({ ok: false, error: error.message }, { status: 500 });
+        return jsonResponse(
+          {
+            ok: false,
+            error: error.message,
+            ...preserved.meta,
+            updatedAt: preserved.status.updatedAt,
+          },
+          { status: 500 }
+        );
       }
     }
 
@@ -451,8 +500,13 @@ export default {
 
   async scheduled(event, env, ctx) {
     ctx.waitUntil(
-      refreshStatus(env).catch((error) => {
+      refreshStatus(env).catch(async (error) => {
         console.error('scheduled refresh failed', error?.message || error);
+        try {
+          await preserveOnFailure(env, error);
+        } catch (preserveError) {
+          console.error('preserveOnFailure failed', preserveError?.message || preserveError);
+        }
       })
     );
   },
