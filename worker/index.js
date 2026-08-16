@@ -21,6 +21,8 @@ const RSS_CHANNELS_PER_RUN = 18;
 const PLAYLIST_FALLBACK_MAX = RSS_CHANNELS_PER_RUN;
 const RSS_ENTRIES_PER_CHANNEL = 10;
 const VIDEOS_LIST_CHUNK = 50;
+/** videos.list の上限。190件だと JSON 解析で無料枠 CPU 10ms を超え、Cron が途中終了する */
+const MAX_VIDEO_IDS_PER_RUN = 80;
 const UPCOMING_GRACE_MS = 30 * 60 * 1000;
 const UPCOMING_HORIZON_MS = 90 * 24 * 60 * 60 * 1000;
 const LIVE_DISPLAY_TTL_MS = 20 * 60 * 1000;
@@ -307,21 +309,25 @@ async function refreshStatus(env) {
     }
   }
 
+  const priorityIds = [];
   for (const item of previous.live || []) {
-    if (shouldCarryOverLiveItem(item) && item.videoId) allVideoIds.push(item.videoId);
+    if (shouldCarryOverLiveItem(item) && item.videoId) priorityIds.push(item.videoId);
   }
   for (const item of previous.upcoming || []) {
-    if (isRelevantUpcomingItem(item) && item.videoId) allVideoIds.push(item.videoId);
+    if (isRelevantUpcomingItem(item) && item.videoId) priorityIds.push(item.videoId);
   }
+  const uniqueVideoIds = [
+    ...new Set([...priorityIds, ...allVideoIds]),
+  ].slice(0, MAX_VIDEO_IDS_PER_RUN);
 
   const live = [];
   const upcoming = [];
   const refreshedVideoIds = new Set();
   let videosListCalls = 0;
 
-  if (allVideoIds.length > 0) {
-    videosListCalls = Math.ceil([...new Set(allVideoIds)].length / VIDEOS_LIST_CHUNK);
-    const videos = await fetchVideosByIds(apiKey, allVideoIds);
+  if (uniqueVideoIds.length > 0) {
+    videosListCalls = Math.ceil(uniqueVideoIds.length / VIDEOS_LIST_CHUNK);
+    const videos = await fetchVideosByIds(apiKey, uniqueVideoIds);
     for (const video of videos) {
       refreshedVideoIds.add(video.id);
       const ownerChannelId = video.snippet?.channelId;
@@ -360,12 +366,23 @@ async function refreshStatus(env) {
     rssBatch: rssTargetIds.length,
     channels: channelIds.length,
     videosListCalls,
-    videoIds: [...new Set(allVideoIds)].length,
+    videoIds: uniqueVideoIds.length,
   };
   status.meta = meta;
   await env.STATUS_KV.put(STATUS_KV_KEY, JSON.stringify(status));
 
   return { status, meta };
+}
+
+/** Cron 開始直後に心跳だけ残す。途中終了でも「起動した」ことが分かる */
+async function touchAttempt(env) {
+  const previous = (await loadPrevious(env)) || emptyStatus();
+  const now = new Date().toISOString();
+  previous.meta = {
+    ...(previous.meta || {}),
+    lastAttemptAt: now,
+  };
+  await env.STATUS_KV.put(STATUS_KV_KEY, JSON.stringify(previous));
 }
 
 /** 取得失敗時も KV に心跳を残し、「Cron 停止」と「API 失敗」を切り分ける */
@@ -503,15 +520,17 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(
-      refreshStatus(env).catch(async (error) => {
-        console.error('scheduled refresh failed', error?.message || error);
-        try {
-          await preserveOnFailure(env, error);
-        } catch (preserveError) {
-          console.error('preserveOnFailure failed', preserveError?.message || preserveError);
-        }
-      })
-    );
+    // Cron は waitUntil だけだと isolate が先に落ち、失敗時の KV 書き込みまで届かない
+    try {
+      await touchAttempt(env);
+      await refreshStatus(env);
+    } catch (error) {
+      console.error('scheduled refresh failed', error?.message || error);
+      try {
+        await preserveOnFailure(env, error);
+      } catch (preserveError) {
+        console.error('preserveOnFailure failed', preserveError?.message || preserveError);
+      }
+    }
   },
 };
