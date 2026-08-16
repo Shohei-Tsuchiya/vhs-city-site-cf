@@ -1,27 +1,32 @@
 /**
  * VHS City status Worker（Cloudflare Workers 無料枠向け）
  *
- * - Cron / POST /refresh で YouTube 状況を取得し KV に保存
+ * - Cron discover（*/5）: RSS ローテで新規発見
+ * - Cron watch（2-59/5）: 既知の配信IDだけ再確認（軽い）
  * - GET /status.json で配信状況を返す
  *
  * 無料枠の制約:
  * - CPU 10ms/回（待ち時間の fetch は除外）
- * - サブリクエスト 50/回 → RSS は少数ローテ、playlist 一括は使わない
- * - KV 書き込み 1,000/日 → 5分おきでも約288回で収まる
+ * - サブリクエスト 50/回
+ * - KV 書き込み 1,000/日 → watch+discover で約 288+288 回（watch は心跳なし）
  */
 
 import membersConfig from '../data/members.json';
 
-const RSS_CHANNELS_PER_RUN = 10;
+const CRON_DISCOVER = '*/5 * * * *';
+const CRON_WATCH = '2-59/5 * * * *';
+
+const RSS_CHANNELS_PER_RUN = 12;
 /**
  * RSS 失敗時の playlistItems 補完上限。
- * サブリクエスト目安: RSS 10 + playlist 最大3 + videos.list 1 ≦ 50
+ * サブリクエスト目安: RSS 12 + playlist 最大3 + videos.list 1 ≦ 50
  */
 const PLAYLIST_FALLBACK_MAX = 3;
 const RSS_ENTRIES_PER_CHANNEL = 4;
 const VIDEOS_LIST_CHUNK = 50;
 /** videos.list は1回（最大50件）に抑え、無料枠 CPU 10ms を守る */
 const MAX_VIDEO_IDS_PER_RUN = 50;
+const RSS_STREAM_MAX_BUFFER = 256_000;
 const UPCOMING_GRACE_MS = 30 * 60 * 1000;
 const UPCOMING_HORIZON_MS = 90 * 24 * 60 * 60 * 1000;
 const LIVE_DISPLAY_TTL_MS = 20 * 60 * 1000;
@@ -71,6 +76,7 @@ function parseRssVideoIds(xml, limit) {
   return ids;
 }
 
+/** 必要な videoId が揃ったら読み取りを打ち切り、大きな XML の全文パースを避ける */
 async function fetchRssVideoIds(channelId) {
   const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
   const res = await fetch(url, {
@@ -78,8 +84,44 @@ async function fetchRssVideoIds(channelId) {
     signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) throw new Error(`RSS ${res.status}`);
-  const xml = await res.text();
-  return parseRssVideoIds(xml, RSS_ENTRIES_PER_CHANNEL);
+
+  if (!res.body || typeof res.body.getReader !== 'function') {
+    const xml = await res.text();
+    return parseRssVideoIds(xml, RSS_ENTRIES_PER_CHANNEL);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  const ids = [];
+  try {
+    while (ids.length < RSS_ENTRIES_PER_CHANNEL) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const re = /<yt:videoId>([^<]+)<\/yt:videoId>/g;
+      let match;
+      let consumed = 0;
+      while ((match = re.exec(buffer)) !== null) {
+        ids.push(match[1]);
+        consumed = match.index + match[0].length;
+        if (ids.length >= RSS_ENTRIES_PER_CHANNEL) break;
+      }
+      if (consumed > 0) buffer = buffer.slice(consumed);
+      else if (buffer.length > 8192) buffer = buffer.slice(-2048);
+
+      if (buffer.length > RSS_STREAM_MAX_BUFFER) break;
+      if (ids.length >= RSS_ENTRIES_PER_CHANNEL) break;
+    }
+  } finally {
+    try {
+      await reader.cancel();
+    } catch {
+      /* ignore */
+    }
+  }
+  return ids.slice(0, RSS_ENTRIES_PER_CHANNEL);
 }
 
 /** uploads プレイリスト（RSS 失敗時の API フォールバック、1 unit / 1 subrequest） */
@@ -267,7 +309,8 @@ async function loadPrevious(env) {
   }
 }
 
-async function refreshStatus(env) {
+async function refreshStatus(env, options = {}) {
+  const mode = options.mode === 'watch' ? 'watch' : 'discover';
   const apiKey = env.YOUTUBE_API_KEY;
   if (!apiKey) throw new Error('YOUTUBE_API_KEY is not set');
 
@@ -278,7 +321,7 @@ async function refreshStatus(env) {
     if (member.channelId) memberByChannel.set(member.channelId, member);
   }
   const channelIds = [...memberByChannel.keys()];
-  const rssTargetIds = selectChannelsForRun(channelIds);
+  const rssTargetIds = mode === 'discover' ? selectChannelsForRun(channelIds) : [];
 
   const perChannelIds = [];
   let rssOk = 0;
@@ -286,24 +329,26 @@ async function refreshStatus(env) {
   let playlistFallback = 0;
   let playlistFallbackSkipped = 0;
 
-  // 順次取得。ローテ少数chで CPU を抑え、既知の配信IDは優先して再確認する
-  for (const channelId of rssTargetIds) {
-    try {
-      const ids = await fetchRssVideoIds(channelId);
-      rssOk += 1;
-      perChannelIds.push(ids);
-    } catch {
-      rssFailed += 1;
-      if (playlistFallback >= PLAYLIST_FALLBACK_MAX) {
-        playlistFallbackSkipped += 1;
-        continue;
-      }
+  if (mode === 'discover') {
+    // 順次取得。ストリーム打ち切り + 少数ローテで CPU を抑える
+    for (const channelId of rssTargetIds) {
       try {
-        const ids = await fetchUploadsPlaylistVideoIds(apiKey, channelId);
-        playlistFallback += 1;
+        const ids = await fetchRssVideoIds(channelId);
+        rssOk += 1;
         perChannelIds.push(ids);
       } catch {
-        /* このチャンネルは次のローテまでスキップ */
+        rssFailed += 1;
+        if (playlistFallback >= PLAYLIST_FALLBACK_MAX) {
+          playlistFallbackSkipped += 1;
+          continue;
+        }
+        try {
+          const ids = await fetchUploadsPlaylistVideoIds(apiKey, channelId);
+          playlistFallback += 1;
+          perChannelIds.push(ids);
+        } catch {
+          /* このチャンネルは次のローテまでスキップ */
+        }
       }
     }
   }
@@ -373,6 +418,7 @@ async function refreshStatus(env) {
 
   const meta = {
     ok: true,
+    mode,
     lastAttemptAt: new Date().toISOString(),
     lastSuccessAt: status.updatedAt,
     refreshStartedAt: null,
@@ -497,7 +543,9 @@ export default {
         return jsonResponse({ error: 'unauthorized', ...authDebug(request, env) }, { status: 401 });
       }
       try {
-        const result = await refreshStatus(env);
+        const modeParam = (url.searchParams.get('mode') || 'discover').toLowerCase();
+        const mode = modeParam === 'watch' ? 'watch' : 'discover';
+        const result = await refreshStatus(env, { mode });
         return jsonResponse({ ok: true, ...result.meta, updatedAt: result.status.updatedAt });
       } catch (error) {
         const preserved = await preserveOnFailure(env, error);
@@ -545,13 +593,15 @@ export default {
     return jsonResponse({ error: 'not_found' }, { status: 404 });
   },
 
-  async scheduled(event, env, ctx) {
-    // Cron は waitUntil だけだと isolate が先に落ち、失敗時の KV 書き込みまで届かない
+  async scheduled(event, env) {
+    const cron = String(event.cron || '');
+    const mode = cron === CRON_WATCH ? 'watch' : 'discover';
+    // discover は重いので心跳を先に書く。watch は軽量のため KV 書き込みを1回に抑える
     try {
-      await touchAttempt(env);
-      await refreshStatus(env);
+      if (mode === 'discover') await touchAttempt(env);
+      await refreshStatus(env, { mode });
     } catch (error) {
-      console.error('scheduled refresh failed', error?.message || error);
+      console.error(`scheduled ${mode} failed`, error?.message || error);
       try {
         await preserveOnFailure(env, error);
       } catch (preserveError) {

@@ -8,23 +8,27 @@ GitHub Pages / Actions 版の実験フォークです。
 ## 構成（無料枠向け）
 
 ```text
-cron（Workers Cron */5）
-  → Worker が YouTube RSS + videos.list（軽量ローテ）
-  → KV に status.json を保存
+cron discover（*/5）
+  → RSS ローテ（ストリーム途中打ち切り）+ videos.list
+  → KV に status.json
+
+cron watch（2-59/5）
+  → 既知の配信IDだけ videos.list（RSSなし・軽い）
+  → KV を更新
 
 ブラウザ
-  → Cloudflare Pages（HTML/CSS/JS）
-  → Worker URL から status.json を取得
+  → Cloudflare Pages
+  → Worker から status.json
 ```
 
 | サービス | 無料枠の使い方 |
 |----------|----------------|
-| Pages | コード変更時だけビルド（5分ごとの再ビルドはしない） |
-| Worker Cron | 5分おき（約288回/日 ≪ 10万回） |
-| KV 書き込み | 約288回/日 ≪ 1,000回 |
-| サブリクエスト | RSS 10ch/回 + videos.list 数回（≤50） |
+| Pages | コード変更時だけビルド |
+| Worker Cron | discover + watch の2本（アカウント上限5本以内） |
+| KV 書き込み | 約860回/日 ≦ 1,000回 |
+| サブリクエスト | discover: RSS〜12 + videos.list 1（≦50） / watch: videos.list 1 |
 
-※ Worker 無料は **CPU 10ms/回** が厳しいので、playlist 一括補完は入れていません。検出はローテーション中心です。
+※ Worker 無料は **CPU 10ms/回**。RSS は必要件数で読み取りを打ち切ります。
 
 ## セットアップ手順
 

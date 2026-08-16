@@ -3,9 +3,10 @@ main = "worker/index.js"
 compatibility_date = "2026-08-01"
 workers_dev = true
 
-# 無料枠: Cron は CPU 10ms。fetch 待ちは CPU 外。5分おき ≈ 288 回/日
+# 無料枠: Cron CPU 10ms。discover=新規発見、watch=既知IDの再確認（ずらして二重書き込みを避ける）
+# KV: discover 約288×2（心跳+成功）+ watch 約288 ≒ 860回/日 < 1000
 [triggers]
-crons = ["*/5 * * * *"]
+crons = ["*/5 * * * *", "2-59/5 * * * *"]
 
 [[kv_namespaces]]
 binding = "STATUS_KV"
