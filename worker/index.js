@@ -12,16 +12,16 @@
 
 import membersConfig from '../data/members.json';
 
-const RSS_CHANNELS_PER_RUN = 41;
+const RSS_CHANNELS_PER_RUN = 10;
 /**
  * RSS 失敗時の playlistItems 補完上限。
- * サブリクエスト: RSS最大41 + playlist最大6 + videos.list 2 ≦ 50（無料枠）
+ * サブリクエスト目安: RSS 10 + playlist 最大3 + videos.list 1 ≦ 50
  */
-const PLAYLIST_FALLBACK_MAX = 6;
-const RSS_ENTRIES_PER_CHANNEL = 10;
+const PLAYLIST_FALLBACK_MAX = 3;
+const RSS_ENTRIES_PER_CHANNEL = 4;
 const VIDEOS_LIST_CHUNK = 50;
-/** videos.list の上限。190件だと JSON 解析で無料枠 CPU 10ms を超え、Cron が途中終了する */
-const MAX_VIDEO_IDS_PER_RUN = 80;
+/** videos.list は1回（最大50件）に抑え、無料枠 CPU 10ms を守る */
+const MAX_VIDEO_IDS_PER_RUN = 50;
 const UPCOMING_GRACE_MS = 30 * 60 * 1000;
 const UPCOMING_HORIZON_MS = 90 * 24 * 60 * 60 * 1000;
 const LIVE_DISPLAY_TTL_MS = 20 * 60 * 1000;
@@ -286,7 +286,7 @@ async function refreshStatus(env) {
   let playlistFallback = 0;
   let playlistFallbackSkipped = 0;
 
-  // 順次取得。動画IDはチャンネル横断でラウンドロビンし、後半グループが 80件上限で落ちないようにする
+  // 順次取得。ローテ少数chで CPU を抑え、既知の配信IDは優先して再確認する
   for (const channelId of rssTargetIds) {
     try {
       const ids = await fetchRssVideoIds(channelId);
@@ -375,6 +375,7 @@ async function refreshStatus(env) {
     ok: true,
     lastAttemptAt: new Date().toISOString(),
     lastSuccessAt: status.updatedAt,
+    refreshStartedAt: null,
     rssOk,
     rssFailed,
     playlistFallback,
@@ -404,6 +405,8 @@ async function touchAttempt(env) {
   previous.meta = {
     ...(previous.meta || {}),
     lastAttemptAt: now,
+    // Cron 起動はしたが成功前。途中終了するとここが残る
+    refreshStartedAt: now,
   };
   await env.STATUS_KV.put(STATUS_KV_KEY, JSON.stringify(previous));
 }

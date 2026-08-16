@@ -84,6 +84,8 @@ function formatRelativeUpdate(status) {
     } else {
       text += ' — 取得に失敗したため前回データを表示中';
     }
+  } else if (minutes >= 10 && attemptAgeMin <= 15) {
+    text += ' — 更新処理が途中で止まっている可能性があります';
   } else if (minutes >= 10) {
     text += ' — 更新が遅れている可能性があります';
   }
