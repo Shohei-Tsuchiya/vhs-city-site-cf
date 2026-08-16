@@ -12,13 +12,12 @@
 
 import membersConfig from '../data/members.json';
 
-const RSS_CHANNELS_PER_RUN = 18;
+const RSS_CHANNELS_PER_RUN = 41;
 /**
  * RSS 失敗時の playlistItems 補完上限。
- * サブリクエスト: RSS最大18 + playlist最大18 + videos.list数回 ≤ 50（無料枠）
- * CF 一本化後は日次 API も余裕があるため、バッチ全件まで補完する。
+ * サブリクエスト: RSS最大41 + playlist最大6 + videos.list 2 ≦ 50（無料枠）
  */
-const PLAYLIST_FALLBACK_MAX = RSS_CHANNELS_PER_RUN;
+const PLAYLIST_FALLBACK_MAX = 6;
 const RSS_ENTRIES_PER_CHANNEL = 10;
 const VIDEOS_LIST_CHUNK = 50;
 /** videos.list の上限。190件だと JSON 解析で無料枠 CPU 10ms を超え、Cron が途中終了する */
@@ -28,9 +27,8 @@ const UPCOMING_HORIZON_MS = 90 * 24 * 60 * 60 * 1000;
 const LIVE_DISPLAY_TTL_MS = 20 * 60 * 1000;
 const LIVE_CARRY_OVER_MS = 3 * 60 * 60 * 1000;
 const LIVE_MAX_DURATION_MS = 10 * 60 * 60 * 1000;
-const LIVE_ACTUAL_START_GRACE_MS = 20 * 60 * 1000;
+const STREAM_RECHECK_MS = 8 * 60 * 60 * 1000;
 const LIVE_START_GRACE_MS = 10 * 60 * 1000;
-const LIVE_STARTUP_GRACE_MS = 45 * 60 * 1000;
 const STATUS_KV_KEY = 'status.json';
 
 const RSS_HEADERS = {
@@ -131,22 +129,12 @@ async function fetchVideosByIds(apiKey, videoIds) {
 function isValidLive(video) {
   if (video.snippet?.liveBroadcastContent !== 'live') return false;
   const details = video.liveStreamingDetails;
-  if (!details || details.actualEndTime) return false;
-  const now = Date.now();
-  if (details.actualStartTime) {
-    const sinceStart = now - new Date(details.actualStartTime).getTime();
-    if (Number.isNaN(sinceStart) || sinceStart < 0) return false;
-    if (sinceStart > LIVE_MAX_DURATION_MS) return false;
-    if (details.concurrentViewers !== undefined) return true;
-    return sinceStart <= LIVE_ACTUAL_START_GRACE_MS;
+  if (details?.actualEndTime) return false;
+  if (details?.actualStartTime) {
+    const sinceStart = Date.now() - new Date(details.actualStartTime).getTime();
+    if (!Number.isNaN(sinceStart) && sinceStart > LIVE_MAX_DURATION_MS) return false;
   }
-  if (details.scheduledStartTime) {
-    const elapsed = now - new Date(details.scheduledStartTime).getTime();
-    if (Number.isNaN(elapsed)) return false;
-    if (elapsed < -LIVE_START_GRACE_MS) return false;
-    return elapsed <= LIVE_STARTUP_GRACE_MS;
-  }
-  return false;
+  return true;
 }
 
 function isValidUpcoming(video) {
@@ -164,6 +152,18 @@ function isRelevantUpcomingItem(item) {
   if (Number.isNaN(startMs)) return false;
   const now = Date.now();
   return startMs + UPCOMING_GRACE_MS > now && startMs <= now + UPCOMING_HORIZON_MS;
+}
+
+/** 表示用 grace を過ぎても、開始前後は videos.list で配信中へ遷移したか再確認する */
+function shouldRecheckKnownItem(item) {
+  if (!item?.videoId) return false;
+  const startMs = new Date(item.scheduledStart || 0).getTime();
+  if (!Number.isNaN(startMs) && startMs > 0) {
+    const now = Date.now();
+    return startMs - LIVE_START_GRACE_MS <= now && now - startMs < STREAM_RECHECK_MS;
+  }
+  const checkedMs = new Date(item.checkedAt || 0).getTime();
+  return !Number.isNaN(checkedMs) && Date.now() - checkedMs < STREAM_RECHECK_MS;
 }
 
 function shouldCarryOverLiveItem(item) {
@@ -314,7 +314,10 @@ async function refreshStatus(env) {
     if (shouldCarryOverLiveItem(item) && item.videoId) priorityIds.push(item.videoId);
   }
   for (const item of previous.upcoming || []) {
-    if (isRelevantUpcomingItem(item) && item.videoId) priorityIds.push(item.videoId);
+    if (shouldRecheckKnownItem(item) && item.videoId) priorityIds.push(item.videoId);
+  }
+  for (const id of previous.meta?.watchVideoIds || []) {
+    if (id) priorityIds.push(id);
   }
   const uniqueVideoIds = [
     ...new Set([...priorityIds, ...allVideoIds]),
@@ -367,6 +370,7 @@ async function refreshStatus(env) {
     channels: channelIds.length,
     videosListCalls,
     videoIds: uniqueVideoIds.length,
+    watchVideoIds: uniqueVideoIds,
   };
   status.meta = meta;
   await env.STATUS_KV.put(STATUS_KV_KEY, JSON.stringify(status));
