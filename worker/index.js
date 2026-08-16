@@ -1,8 +1,8 @@
 /**
  * VHS City status Worker（Cloudflare Workers 無料枠向け）
  *
- * - Cron discover（*/5）: RSS ローテで新規発見
- * - Cron watch（2-59/5）: 既知の配信IDだけ再確認（軽い）
+ * - Cron discover（5分おき）: RSS ローテで新規発見
+ * - Cron watch（5分おき・2分ずらす）: 既知の配信IDだけ再確認（軽い）
  * - GET /status.json で配信状況を返す
  *
  * 無料枠の制約:
