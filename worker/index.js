@@ -280,19 +280,18 @@ async function refreshStatus(env) {
   const channelIds = [...memberByChannel.keys()];
   const rssTargetIds = selectChannelsForRun(channelIds);
 
-  const allVideoIds = [];
+  const perChannelIds = [];
   let rssOk = 0;
   let rssFailed = 0;
   let playlistFallback = 0;
   let playlistFallbackSkipped = 0;
 
-  // 順次取得（同時多発を避け、無料枠の安定性を優先）
-  // サブリクエスト目安: RSS最大18 + playlist補完上限 + videos.list数回 ≤ 50
+  // 順次取得。動画IDはチャンネル横断でラウンドロビンし、後半グループが 80件上限で落ちないようにする
   for (const channelId of rssTargetIds) {
     try {
       const ids = await fetchRssVideoIds(channelId);
       rssOk += 1;
-      for (const id of ids) allVideoIds.push(id);
+      perChannelIds.push(ids);
     } catch {
       rssFailed += 1;
       if (playlistFallback >= PLAYLIST_FALLBACK_MAX) {
@@ -302,7 +301,7 @@ async function refreshStatus(env) {
       try {
         const ids = await fetchUploadsPlaylistVideoIds(apiKey, channelId);
         playlistFallback += 1;
-        for (const id of ids) allVideoIds.push(id);
+        perChannelIds.push(ids);
       } catch {
         /* このチャンネルは次のローテまでスキップ */
       }
@@ -319,9 +318,26 @@ async function refreshStatus(env) {
   for (const id of previous.meta?.watchVideoIds || []) {
     if (id) priorityIds.push(id);
   }
-  const uniqueVideoIds = [
-    ...new Set([...priorityIds, ...allVideoIds]),
-  ].slice(0, MAX_VIDEO_IDS_PER_RUN);
+
+  const uniqueVideoIds = [];
+  const seenIds = new Set();
+  const pushVideoId = (id) => {
+    if (!id || seenIds.has(id) || uniqueVideoIds.length >= MAX_VIDEO_IDS_PER_RUN) return;
+    seenIds.add(id);
+    uniqueVideoIds.push(id);
+  };
+  for (const id of priorityIds) pushVideoId(id);
+  for (let depth = 0; uniqueVideoIds.length < MAX_VIDEO_IDS_PER_RUN; depth += 1) {
+    let added = false;
+    for (const ids of perChannelIds) {
+      if (depth < ids.length) {
+        const before = uniqueVideoIds.length;
+        pushVideoId(ids[depth]);
+        if (uniqueVideoIds.length > before) added = true;
+      }
+    }
+    if (!added) break;
+  }
 
   const live = [];
   const upcoming = [];
