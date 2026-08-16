@@ -315,9 +315,6 @@ async function refreshStatus(env) {
   for (const item of previous.upcoming || []) {
     if (shouldRecheckKnownItem(item) && item.videoId) priorityIds.push(item.videoId);
   }
-  for (const id of previous.meta?.watchVideoIds || []) {
-    if (id) priorityIds.push(id);
-  }
 
   const uniqueVideoIds = [];
   const seenIds = new Set();
@@ -386,7 +383,13 @@ async function refreshStatus(env) {
     channels: channelIds.length,
     videosListCalls,
     videoIds: uniqueVideoIds.length,
-    watchVideoIds: uniqueVideoIds,
+    watchVideoIds: [
+      ...new Set(
+        [...(status.live || []), ...(status.upcoming || [])]
+          .map((item) => item.videoId)
+          .filter(Boolean)
+      ),
+    ],
   };
   status.meta = meta;
   await env.STATUS_KV.put(STATUS_KV_KEY, JSON.stringify(status));
