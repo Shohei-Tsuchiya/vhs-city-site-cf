@@ -358,7 +358,13 @@ async function refreshStatus(env, options = {}) {
     if (shouldCarryOverLiveItem(item) && item.videoId) priorityIds.push(item.videoId);
   }
   for (const item of previous.upcoming || []) {
-    if (shouldRecheckKnownItem(item) && item.videoId) priorityIds.push(item.videoId);
+    // watch / discover とも、把握済みの予定は毎回再確認（開始直後の live 化を逃さない）
+    if (isRelevantUpcomingItem(item) && item.videoId) priorityIds.push(item.videoId);
+  }
+  if (mode === 'watch') {
+    for (const id of previous.meta?.watchVideoIds || []) {
+      if (id) priorityIds.push(id);
+    }
   }
 
   const uniqueVideoIds = [];
