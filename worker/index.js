@@ -66,17 +66,36 @@ function selectChannelsForRun(channelIds) {
   return selected;
 }
 
-function parseRssVideoIds(xml, limit) {
+/**
+ * YouTube RSS は published（公開）順。朝活など使い回しの配信枠は
+ * 公開日が古く末尾に埋もれるため、updated（最終更新）が新しい順で選ぶ。
+ */
+function pickRecentRssVideoIds(xml, limit) {
+  const items = [];
+  const parts = xml.split('<entry>');
+  for (let i = 1; i < parts.length; i += 1) {
+    const id = parts[i].match(/<yt:videoId>([^<]+)<\/yt:videoId>/);
+    if (!id) continue;
+    const updated = parts[i].match(/<updated>([^<]+)<\/updated>/);
+    const updatedMs = updated ? Date.parse(updated[1]) : 0;
+    items.push({
+      id: id[1],
+      updatedMs: Number.isNaN(updatedMs) ? 0 : updatedMs,
+    });
+  }
+  items.sort((a, b) => b.updatedMs - a.updatedMs);
   const ids = [];
-  const re = /<yt:videoId>([^<]+)<\/yt:videoId>/g;
-  let m;
-  while ((m = re.exec(xml)) && ids.length < limit) {
-    ids.push(m[1]);
+  const seen = new Set();
+  for (const item of items) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    ids.push(item.id);
+    if (ids.length >= limit) break;
   }
   return ids;
 }
 
-/** 必要な videoId が揃ったら読み取りを打ち切り、大きな XML の全文パースを避ける */
+/** RSS は 15 件程度と小さい。全文を読んで updated 順に選ぶ */
 async function fetchRssVideoIds(channelId) {
   const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
   const res = await fetch(url, {
@@ -87,32 +106,21 @@ async function fetchRssVideoIds(channelId) {
 
   if (!res.body || typeof res.body.getReader !== 'function') {
     const xml = await res.text();
-    return parseRssVideoIds(xml, RSS_ENTRIES_PER_CHANNEL);
+    return pickRecentRssVideoIds(xml, RSS_ENTRIES_PER_CHANNEL);
   }
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
-  const ids = [];
   try {
-    while (ids.length < RSS_ENTRIES_PER_CHANNEL) {
+    while (buffer.length < RSS_STREAM_MAX_BUFFER) {
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
-
-      const re = /<yt:videoId>([^<]+)<\/yt:videoId>/g;
-      let match;
-      let consumed = 0;
-      while ((match = re.exec(buffer)) !== null) {
-        ids.push(match[1]);
-        consumed = match.index + match[0].length;
-        if (ids.length >= RSS_ENTRIES_PER_CHANNEL) break;
+      if (buffer.length > RSS_STREAM_MAX_BUFFER) {
+        buffer = buffer.slice(0, RSS_STREAM_MAX_BUFFER);
+        break;
       }
-      if (consumed > 0) buffer = buffer.slice(consumed);
-      else if (buffer.length > 8192) buffer = buffer.slice(-2048);
-
-      if (buffer.length > RSS_STREAM_MAX_BUFFER) break;
-      if (ids.length >= RSS_ENTRIES_PER_CHANNEL) break;
     }
   } finally {
     try {
@@ -121,7 +129,7 @@ async function fetchRssVideoIds(channelId) {
       /* ignore */
     }
   }
-  return ids.slice(0, RSS_ENTRIES_PER_CHANNEL);
+  return pickRecentRssVideoIds(buffer, RSS_ENTRIES_PER_CHANNEL);
 }
 
 /** uploads プレイリスト（RSS 失敗時の API フォールバック、1 unit / 1 subrequest） */
